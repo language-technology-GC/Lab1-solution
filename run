@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -eou pipefail
+
+# Makes pairs file.
+export PAIRS=data/pairs.tsv
+cut -f1,2 data/ws353.tsv > "${PAIRS}"
+
+# This assumes you have downloaded several of the news.20*.gz files
+# to the `data/` subdirectory.
+export TOK=data/news.tok
+#gunzip -c data/news.20*.gz | \
+#    ./word_tokenize.py | \
+#    ./casefold.py > "${TOK}"
+
+# Part 1, which is self-contained.
+./wordnet_sim.py --ws353_path=data/ws353.tsv
+
+# Parts 2-3 share the same script for joining the TSVs.
+
+# This runs part 2.
+export PPMI="data/ppmi.tsv"
+#./ppmi.py \
+#    --pairs_path="${PAIRS}" \
+#    --tok_path="${TOK}" \
+#    --results_path="${PPMI}"
+echo "PPMI:"
+./cor.py \
+    --ws353_path=data/ws353.tsv \
+    --results_path="${PPMI}"
+
+# This runs part 3.
+export WORD2VEC="data/word2vec.tsv"
+#./word2vec.py \
+#    --pairs_path="${PAIRS}" \
+#    --tok_path="${TOK}" \
+#    --results_path="${WORD2VEC}"
+echo "Word2Vec:"
+./cor.py \
+    --ws353_path=data/ws353.tsv \
+    --results_path="${WORD2VEC}"
+
+# What I might do differently:
+#
+# * the path to ws353.tsv should probably be passed by flag.
+# * I may have made mistakes with the PPMI script.

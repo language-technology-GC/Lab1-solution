@@ -1,20 +1,16 @@
 #!/usr/bin/env python
 """Computes correlations for WordNet similarity measures."""
 
+import argparse
 import logging
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from nltk.corpus import wordnet, wordnet_ic
-from nltk.corpus.reader.wordnet import Synset, WordNetError
-import pandas
-import scipy.stats
+from nltk.corpus import wordnet, wordnet_ic  # type: ignore
+from nltk.corpus.reader.wordnet import Synset, WordNetError  # type: ignore
+import pandas  # type: ignore
+import scipy.stats  # type: ignore
 
-
-# The combined scores from the WordSimilarity-353 Test Collection:
-#
-#     http://www.cs.technion.ac.il/~gabr/resources/data/wordsim353/
-HUMAN_SOURCE = "data/ws353.tsv"
 
 NAN = float("nan")
 
@@ -87,20 +83,23 @@ class SimilarityCalculator:
             return NAN
 
 
-def _cor(x, y) -> float:
-    """Computes Spearman correlation coefficient."""
-    return scipy.stats.spearmanr(x, y, nan_policy="omit").correlation
+def _cor(x, y) -> Tuple[float, int]:
+    """Computes Spearman correlation coefficient and coverage."""
+    rho = scipy.stats.spearmanr(x, y, nan_policy="omit").correlation
+    coverage = 1.0 - y.isna().mean()
+    return (rho, coverage)
 
 
-def main() -> None:
+def main(args: argparse.Namespace) -> None:
     # Reads in human similarity data.
-    data = pandas.read_csv(HUMAN_SOURCE, delimiter="\t",
-                           names=["x", "y", "sim"])
+    data = pandas.read_csv(
+        args.ws353_path, delimiter="\t", names=["x", "y", "sim"]
+    )
     # Casefolds.
     data["x"] = data["x"].str.casefold()
     data["y"] = data["y"].str.casefold()
     # Grabs synset pairs.
-    synset_pairs: List[tuple[Synset, Synset]] = []
+    synset_pairs: List[Tuple[Synset, Synset]] = []
     for (_, w1, w2, score) in data.itertuples():
         s1 = SimilarityCalculator.synset(w1)
         s2 = SimilarityCalculator.synset(w2)
@@ -114,14 +113,30 @@ def main() -> None:
     data["jcn"] = [simcalc.jcn(s1, s2) for (s1, s2) in synset_pairs]
     data["lin"] = [simcalc.lin(s1, s2) for (s1, s2) in synset_pairs]
     # Computes correlations.
-    logging.info("path:\t%.4f", _cor(data["sim"], data["path"]))
-    logging.info("lch:\t%.4f", _cor(data["sim"], data["lch"]))
-    logging.info("wup:\t%.4f", _cor(data["sim"], data["wup"]))
-    logging.info("res:\t%.4f", _cor(data["sim"], data["res"]))
-    logging.info("jcn:\t%.4f", _cor(data["sim"], data["jcn"]))
-    logging.info("lin:\t%.4f", _cor(data["sim"], data["lin"]))
+    logging.info(
+        "path:\t% .4f (coverage: %.2f)", *_cor(data["sim"], data["path"])
+    )
+    logging.info(
+        "lch:\t% .4f (coverage: %.2f)", *_cor(data["sim"], data["lch"])
+    )
+    logging.info(
+        "wup:\t% .4f (coverage: %.2f)", *_cor(data["sim"], data["wup"])
+    )
+    logging.info(
+        "res:\t% .4f (coverage: %.2f)", *_cor(data["sim"], data["res"])
+    )
+    logging.info(
+        "jcn:\t% .4f (coverage: %.2f)", *_cor(data["sim"], data["jcn"])
+    )
+    logging.info(
+        "lin:\t% .4f (coverage: %.2f)", *_cor(data["sim"], data["lin"])
+    )
 
 
 if __name__ == "__main__":
     logging.basicConfig(format="%(levelname)s: %(message)s", level="INFO")
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--ws353_path", required=True, help="path to ws353 TSV"
+    )
+    main(parser.parse_args())

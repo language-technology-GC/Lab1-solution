@@ -2,7 +2,7 @@
 
 import fileinput
 
-import nltk
+import nltk  # type: ignore
 
 
 if __name__ == "__main__":
